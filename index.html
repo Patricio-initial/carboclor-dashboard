@@ -65,7 +65,7 @@ const nf=new Intl.NumberFormat("es-AR");
 const pf=new Intl.NumberFormat("es-AR",{style:"percent",minimumFractionDigits:1});
 
 function parseCSV(text){
-return text.trim().split("\n").map(r=>r.split(","));
+  return text.trim().split("\n").map(r=>r.split(";"));
 }
 
 async function load(){
@@ -84,12 +84,12 @@ const tank=r[0];
 const cap=parseFloat(r[1]);
 const product=r[2];
 function cleanNumber(val){
-if(!val) return 0;
-return parseFloat(
-  val
-    .replace(/\./g,"")   // elimina separadores de miles
-    .replace(",",".")    // convierte decimal argentino
-);
+  if(!val) return 0;
+  return parseFloat(
+    val
+      .replace(/\./g,"")
+      .replace(",",".")
+  );
 }
 
 const stock=cleanNumber(r[3]);

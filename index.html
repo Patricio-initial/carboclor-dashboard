@@ -83,10 +83,18 @@ if(!r[0])continue;
 const tank=r[0];
 const cap=parseFloat(r[1]);
 const product=r[2];
-const stock=parseFloat(r[3]);
-const density=parseFloat(r[4].replace(",","."));
-const util=parseFloat(r[8]);
+function cleanNumber(val){
+if(!val) return 0;
+return parseFloat(
+  val
+    .replace(/\./g,"")   // elimina separadores de miles
+    .replace(",",".")    // convierte decimal argentino
+);
+}
 
+const stock=cleanNumber(r[3]);
+const density=cleanNumber(r[4]);
+const util=cleanNumber(r[8]);
 const capacityKg=cap*density*1000;
 const availableKg=capacityKg-stock;
 

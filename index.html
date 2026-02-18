@@ -1,165 +1,123 @@
-<!doctype html>
-<html lang="es-AR">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Carboclor – Tank Dashboard</title>
-
-<style>
-body{margin:0;font-family:system-ui;background:#0b1020;color:#e9eefc}
-.wrap{max-width:1200px;margin:auto;padding:20px}
-h1{margin:0 0 10px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.card{background:#101a33;padding:15px;border-radius:12px}
-.card .value{font-size:22px;font-weight:700}
-.panel{background:#101a33;border-radius:12px;padding:15px;margin-bottom:20px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{padding:8px;border-bottom:1px solid #1e2a4a}
-th{text-align:left;color:#9fb0da}
-.right{text-align:right}
-.bar{height:10px;background:#1e2a4a;border-radius:10px;overflow:hidden}
-.bar i{display:block;height:100%}
-.good{background:#22c55e}
-.warn{background:#f59e0b}
-.bad{background:#ef4444}
-.rank-item{padding:8px;border-bottom:1px solid #1e2a4a}
-button{padding:8px 12px;border:none;border-radius:6px;background:#2a3d7a;color:white;cursor:pointer}
-</style>
-</head>
-
-<body>
-<div class="wrap">
-<h1>Carboclor – Tank Dashboard</h1>
-<button onclick="load()">Actualizar datos</button>
-
-<div class="cards" id="kpis"></div>
-
-<div class="panel">
-<h3>Estado por tanque (kg)</h3>
-<table>
-<thead>
-<tr>
-<th>Tank</th>
-<th>Producto</th>
-<th class="right">Stock (kg)</th>
-<th class="right">Disponible (kg)</th>
-<th class="right">Util %</th>
-<th>Barra</th>
-</tr>
-</thead>
-<tbody id="tableBody"></tbody>
-</table>
-</div>
-
-<div class="panel">
-<h3>Ranking (por ocupación)</h3>
-<div id="ranking"></div>
-</div>
-
-</div>
-
 <script>
-const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vTpBCDFzrA3FFkJTGY6BOcRy1cytiKOy30P7iLrRF5F4rs4BTu0ZQNkEaOskOJhz55yL06hlUVOPiro/pub?gid=794880848&single=true&output=csv";
 
-const nf=new Intl.NumberFormat("es-AR");
-const pf=new Intl.NumberFormat("es-AR",{style:"percent",minimumFractionDigits:1});
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTpBCDFzrA3FFkJTGY6BOcRy1cytiKOy30P7iLrRF5F4rs4BTu0ZQNkEaOskOJhz55yL06hlUVOPiro/pub?gid=794880848&single=true&output=csv";
 
-function parseCSV(text){
-  return text.trim().split("\n").map(r=>r.split(";"));
+const nf = new Intl.NumberFormat("es-AR");
+const pf = new Intl.NumberFormat("es-AR", {style:"percent", minimumFractionDigits:1});
+
+function detectSeparator(line){
+  if(line.includes(";")) return ";";
+  return ",";
 }
 
-async function load(){
-const res=await fetch(CSV_URL);
-const text=await res.text();
-const rows=parseCSV(text);
+function parseCSV(text){
+  const lines = text.trim().split("\n");
+  const sep = detectSeparator(lines[0]);
+  return lines.map(l => l.split(sep));
+}
 
-const headers=rows[0];
-const data=[];
-
-for(let i=1;i<rows.length;i++){
-const r=rows[i];
-if(!r[0])continue;
-
-const tank=r[0];
-const cap=parseFloat(r[1]);
-const product=r[2];
 function cleanNumber(val){
   if(!val) return 0;
   return parseFloat(
     val
-      .replace(/\./g,"")
-      .replace(",",".")
+      .replace(/\./g,"")      // elimina miles
+      .replace(",",".")       // convierte decimal
   );
 }
 
-const stock=cleanNumber(r[3]);
-const density=cleanNumber(r[4]);
-const util=cleanNumber(r[8]);
-const capacityKg=cap*density*1000;
-const availableKg=capacityKg-stock;
+async function load(){
+  const res = await fetch(CSV_URL);
+  const text = await res.text();
+  const rows = parseCSV(text);
 
-data.push({tank,cap,product,stock,density,util,availableKg});
-}
+  const data = [];
 
-data.sort((a,b)=>b.util-a.util);
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r[0]) continue;
 
-renderKPIs(data);
-renderTable(data);
-renderRanking(data);
+    const tank = r[0];
+    const cap = cleanNumber(r[1]);
+    const product = r[2];
+    const stock = cleanNumber(r[3]);
+    const density = cleanNumber(r[4]);
+    const util = cleanNumber(r[8]);
+
+    if(!cap || !density) continue;
+
+    const capacityKg = cap * density * 1000;
+    const availableKg = capacityKg - stock;
+
+    data.push({
+      tank,
+      cap,
+      product,
+      stock,
+      density,
+      util,
+      availableKg
+    });
+  }
+
+  data.sort((a,b)=>b.util-a.util);
+
+  renderKPIs(data);
+  renderTable(data);
+  renderRanking(data);
 }
 
 function renderKPIs(data){
-const capTotal=data.reduce((s,r)=>s+r.cap,0);
-const stockTotal=data.reduce((s,r)=>s+r.stock,0);
-const volumeTotal=data.reduce((s,r)=>s+r.stock/(r.density*1000),0);
-const utilGlobal=stockTotal/(capTotal*1000*data[0].density);
+  const capTotal = data.reduce((s,r)=>s+r.cap,0);
+  const stockTotal = data.reduce((s,r)=>s+r.stock,0);
+  const volumeTotal = data.reduce((s,r)=>s + (r.stock/(r.density*1000)),0);
+  const utilGlobal = stockTotal / data.reduce((s,r)=>s+(r.cap*r.density*1000),0);
 
-document.getElementById("kpis").innerHTML=`
-<div class="card"><div>Capacidad total (m³)</div><div class="value">${nf.format(capTotal)}</div></div>
-<div class="card"><div>Volumen ocupado (m³)</div><div class="value">${nf.format(volumeTotal)}</div></div>
-<div class="card"><div>Stock total (kg)</div><div class="value">${nf.format(stockTotal)}</div></div>
-<div class="card"><div>Ocupación global</div><div class="value">${pf.format(utilGlobal)}</div></div>
-`;
+  document.getElementById("kpis").innerHTML = `
+    <div class="card"><div>Capacidad total (m³)</div><div class="value">${nf.format(capTotal)}</div></div>
+    <div class="card"><div>Volumen ocupado (m³)</div><div class="value">${nf.format(volumeTotal)}</div></div>
+    <div class="card"><div>Stock total (kg)</div><div class="value">${nf.format(stockTotal)}</div></div>
+    <div class="card"><div>Ocupación global</div><div class="value">${pf.format(utilGlobal)}</div></div>
+  `;
 }
 
 function renderTable(data){
-const tbody=document.getElementById("tableBody");
-tbody.innerHTML="";
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
 
-data.forEach(r=>{
-const width=Math.min(r.util*100,100);
-let cls="warn";
-if(r.util>0.85)cls="bad";
-if(r.util<0.40)cls="good";
+  data.forEach(r=>{
+    const width = Math.min(r.util*100,100);
+    let cls="warn";
+    if(r.util>0.85) cls="bad";
+    if(r.util<0.40) cls="good";
 
-tbody.innerHTML+=`
-<tr>
-<td>${r.tank}</td>
-<td>${r.product}</td>
-<td class="right">${nf.format(r.stock)}</td>
-<td class="right">${nf.format(r.availableKg)}</td>
-<td class="right">${pf.format(r.util)}</td>
-<td>
-<div class="bar"><i class="${cls}" style="width:${width}%"></i></div>
-</td>
-</tr>
-`;
-});
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.tank}</td>
+        <td>${r.product}</td>
+        <td class="right">${nf.format(r.stock)}</td>
+        <td class="right">${nf.format(r.availableKg)}</td>
+        <td class="right">${pf.format(r.util)}</td>
+        <td><div class="bar"><i class="${cls}" style="width:${width}%"></i></div></td>
+      </tr>
+    `;
+  });
 }
 
 function renderRanking(data){
-const div=document.getElementById("ranking");
-div.innerHTML="";
-data.slice(0,8).forEach((r,i)=>{
-div.innerHTML+=`
-<div class="rank-item">
-<b>${i+1}. Tank ${r.tank}</b> – ${pf.format(r.util)} – ${nf.format(r.stock)} kg
-</div>
-`;
-});
+  const div = document.getElementById("ranking");
+  div.innerHTML = "";
+
+  data.slice(0,8).forEach((r,i)=>{
+    div.innerHTML += `
+      <div class="rank-item">
+        <b>${i+1}. Tank ${r.tank}</b> – ${pf.format(r.util)} – ${nf.format(r.stock)} kg
+      </div>
+    `;
+  });
 }
 
 load();
+
 </script>
 </body>
 </html>

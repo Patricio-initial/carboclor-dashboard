@@ -106,96 +106,92 @@ font-size:12px;
 
 <script>
 
-const CSV_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vSdyOrnlQBDihM-vR3ylD5hyWkwahrugTXpi_tEeEwRxXZiNIEGlZ2VMZvwJ3gkzxHF2XNcFXMQApun/pub?gid=1349722585&single=true&output=csv";
+const CSV_URL =
+"https://docs.google.com/spreadsheets/d/e/2PACX-1vSdyOrnlQBDihM-vR3ylD5hyWkwahrugTXpi_tEeEwRxXZiNIEGlZ2VMZvwJ3gkzxHF2XNcFXMQApun/pub?gid=1349722585&single=true&output=csv";
 
-const nf=new Intl.NumberFormat("es-AR");
-const pf=new Intl.NumberFormat("es-AR",{style:"percent",minimumFractionDigits:1});
+const nf = new Intl.NumberFormat("es-AR");
+const pf = new Intl.NumberFormat("es-AR",{style:"percent",minimumFractionDigits:1});
 
 function parseCSV(text){
-return text.trim().split("\n").map(r=>r.split(","));
+  return text.trim().split("\n").map(r=>r.split(","));
 }
 
 async function load(){
 
-const res=await fetch(CSV_URL+"?t="+Date.now());
-const text=await res.text();
+  const res = await fetch(CSV_URL+"?t="+Date.now());
+  const text = await res.text();
+  const rows = parseCSV(text);
 
-const rows=parseCSV(text);
+  const data=[];
 
-const data=[];
+  for(let i=1;i<rows.length;i++){
 
-for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r[0]) continue;
 
-const r=rows[i];
-if(!r[0]) continue;
+    data.push({
+      tank:r[0],
+      cap:parseFloat(r[1]),
+      stock:parseFloat(r[2]),
+      density:parseFloat(r[3]),
+      capacityKg:parseFloat(r[4]),
+      availableKg:parseFloat(r[5]),
+      util:parseFloat(r[6]),
+      volume:parseFloat(r[7]),
+      product:r[8]
+    });
+  }
 
-data.push({
-tank:r[0],
-cap:parseFloat(r[1]),
-product:r[2],
-stock:parseFloat(r[3]),
-capacityKg:parseFloat(r[4]),
-availableKg:parseFloat(r[5]),
-util:parseFloat(r[6]),
-volume:parseFloat(r[7])
-});
-}
+  data.sort((a,b)=>b.util-a.util);
 
-data.sort((a,b)=>b.util-a.util);
+  render(data);
 
-render(data);
-
-document.getElementById("status").innerText=
-"LIVE · Updated "+new Date().toLocaleTimeString();
-
+  document.getElementById("status").innerText =
+    "LIVE · Updated "+new Date().toLocaleTimeString();
 }
 
 function render(data){
 
-const capTotal=data.reduce((s,r)=>s+r.cap,0);
-const volTotal=data.reduce((s,r)=>s+r.volume,0);
-const stockTotal=data.reduce((s,r)=>s+r.stock,0);
-const capacityKgTotal=data.reduce((s,r)=>s+r.capacityKg,0);
+  const capTotal = data.reduce((s,r)=>s+r.cap,0);
+  const volTotal = data.reduce((s,r)=>s+r.volume,0);
+  const stockTotal = data.reduce((s,r)=>s+r.stock,0);
+  const capacityKgTotal = data.reduce((s,r)=>s+r.capacityKg,0);
 
-const utilGlobal=stockTotal/capacityKgTotal;
+  const utilGlobal = stockTotal/capacityKgTotal;
 
-document.getElementById("kpis").innerHTML=`
-<div class="card"><div>Total Capacity m³</div><div class="value">${nf.format(capTotal)}</div></div>
-<div class="card"><div>Used Volume m³</div><div class="value">${nf.format(volTotal)}</div></div>
-<div class="card"><div>Total Stock kg</div><div class="value">${nf.format(stockTotal)}</div></div>
-<div class="card"><div>Global Utilization</div><div class="value">${pf.format(utilGlobal)}</div></div>
-`;
+  document.getElementById("kpis").innerHTML=`
+  <div class="card"><div>Total Capacity m³</div><div class="value">${nf.format(capTotal)}</div></div>
+  <div class="card"><div>Used Volume m³</div><div class="value">${nf.format(volTotal)}</div></div>
+  <div class="card"><div>Total Stock kg</div><div class="value">${nf.format(stockTotal)}</div></div>
+  <div class="card"><div>Global Utilization</div><div class="value">${pf.format(utilGlobal)}</div></div>
+  `;
 
-const tbody=document.getElementById("table");
-tbody.innerHTML="";
+  const tbody=document.getElementById("table");
+  tbody.innerHTML="";
 
-data.forEach(r=>{
+  data.forEach(r=>{
 
-let cls="good";
-if(r.util>0.85) cls="bad";
-else if(r.util>0.60) cls="warn";
+    let cls="good";
+    if(r.util>0.85) cls="bad";
+    else if(r.util>0.60) cls="warn";
 
-tbody.innerHTML+=`
-<tr>
-<td>${r.tank}</td>
-<td>${r.product}</td>
-<td class="right">${nf.format(r.stock)}</td>
-<td class="right">${nf.format(r.availableKg)}</td>
-<td class="right">${pf.format(r.util)}</td>
-<td>
-<div class="bar">
-<i class="${cls}" style="width:${Math.min(r.util*100,100)}%"></i>
-</div>
-</td>
-</tr>
-`;
-});
-
+    tbody.innerHTML+=`
+    <tr>
+      <td>${r.tank}</td>
+      <td>${r.product}</td>
+      <td class="right">${nf.format(r.stock)}</td>
+      <td class="right">${nf.format(r.availableKg)}</td>
+      <td class="right">${pf.format(r.util)}</td>
+      <td>
+        <div class="bar">
+          <i class="${cls}" style="width:${Math.min(r.util*100,100)}%"></i>
+        </div>
+      </td>
+    </tr>`;
+  });
 }
 
 load();
-
-/* AUTO REFRESH */
 setInterval(load,30000);
 
 </script>
